@@ -4,7 +4,7 @@ package reversi.game;
 public record Move(int row, int col) {
 
     public Move {
-        if (row < 0 || row >= 8 || col < 0 || col >= 8) {   // Проверка на выход за край доски
+        if (row < 0 || row >= Board.SIZE || col < 0 || col >= Board.SIZE) {   // Проверка на выход за край доски
             throw new IllegalArgumentException("Move outside the board: " + row + ", " + col);
         }
     }
