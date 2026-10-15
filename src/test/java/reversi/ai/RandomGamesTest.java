@@ -3,6 +3,9 @@ package reversi.ai;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
 
 import reversi.game.Board;
@@ -24,6 +27,18 @@ class RandomGamesTest {
             }
         }
         return n;
+    }
+
+    // Все ходы одной партии агента против самого себя
+    private static List<Move> movesOfOneGame(Agent agent) {
+        List<Move> moves = new ArrayList<>();
+        Game game = new Game();
+        while (!game.isOver()) {
+            Move m = agent.chooseMove(game.board(), game.currentPlayer());
+            moves.add(m);
+            game.play(m);
+        }
+        return moves;
     }
 
     @Test
@@ -51,5 +66,10 @@ class RandomGamesTest {
             // Свободных клеток всего 60, больше ходов в партии быть не может
             assertTrue(movesMade <= 60);
         }
+    }
+
+    @Test
+    void sameSeedGivesSameGame() {
+        assertEquals(movesOfOneGame(new RandomAgent(42)), movesOfOneGame(new RandomAgent(42)));
     }
 }
