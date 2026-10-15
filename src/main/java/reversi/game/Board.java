@@ -67,7 +67,7 @@ public final class Board {
     };
 
     // Проверка на выход за край доски. Отличие от проверки в Move в том, что эта просто отвечает да или нет, а не выдаёт Exception
-    // и нужен внутри для поверок функций класса Board, в отличие от проверки в Move которая нужна для тех кто делает ходы
+    // и нужна внутри для поверок функций класса Board, в отличие от проверки в Move которая нужна для тех кто делает ходы
     private static boolean onBoard(int row, int col) {
         return row >= 0 && row < SIZE && col >= 0 && col < SIZE;
     }
@@ -84,7 +84,8 @@ public final class Board {
             r += dRow;
             c += dCol;
         }
-        // Каждый раз проверяет цвет следующей фишки, если она своя, то закрываем цикл и отправляем количество вражеских фишек на пути
+        // После завершения цикла выполняется проверка, где главное условие это чья фишка стояла на последней проверенной клетке
+        // Если стояла своя, значит ряд закрыт и можно перевернуть вражеские фишки
         if (count > 0 && onBoard(r, c) && cells[r][c] == p.value()) {
             return count;
         }
@@ -93,7 +94,7 @@ public final class Board {
     }
 
     // Ход легален, если клетка пустая и хотя бы в одном направлении что-то переворачивается
-    // Иными словами cells[row][m.col] == 0 && flipsInDirection > 0
+    // Иными словами cells[row][col] == 0 && flipsInDirection > 0
     public boolean isValidMove(Player p, Move m) {
         if (cells[m.row()][m.col()] != 0) {
             return false;
@@ -118,5 +119,44 @@ public final class Board {
             }
         }
         return moves;
+    }
+
+    // Возвращает новую доску после хода. Старая доска не меняется
+    public Board applyMove(Player p, Move m) {
+        if (!isValidMove(p, m)) {
+            throw new IllegalArgumentException("Illegal move " + m + " for " + p);
+        }
+        // Копирует каждую строку отдельно, иначе копия и оригинал делили бы одни и те же строки
+        int[][] copy = new int[SIZE][];
+        for (int row = 0; row < SIZE; row++) {
+            copy[row] = cells[row].clone();
+        }
+        copy[m.row()][m.col()] = p.value();
+        for (int[] d : DIRECTIONS) {
+            // Считает по старой доске cells, а меняет копию
+            int n = flipsInDirection(p, m.row(), m.col(), d[0], d[1]);
+            for (int i = 1; i <= n; i++) {
+                copy[m.row() + i * d[0]][m.col() + i * d[1]] = p.value();
+            }
+        }
+        return new Board(copy);
+    }
+
+    // Игра окончена, когда ходов нет ни у одного игрока
+    public boolean isGameOver() {
+        return getValidMoves(Player.BLACK).isEmpty() && getValidMoves(Player.WHITE).isEmpty();
+    }
+
+    // У кого больше фишек того возвращают как победителя. null при ничьей
+    public Player getWinner() {
+        int black = count(Player.BLACK);
+        int white = count(Player.WHITE);
+        if (black > white) {
+            return Player.BLACK;
+        } else if (white > black) {
+            return Player.WHITE;
+        } else {
+            return null;
+        }
     }
 }
