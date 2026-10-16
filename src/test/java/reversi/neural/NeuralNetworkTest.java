@@ -44,6 +44,29 @@ class NeuralNetworkTest {
         }
     }
 
+    // XOR нельзя разделить одной прямой, поэтому без скрытого слоя он не учится. Проверяем, что сеть его выучивает
+    @Test
+    void learnsXor() {
+        // Входы и ответы в кодировке -1 и 1, как клетки доски в toInput
+        double[][] inputs = {{-1, -1}, {-1, 1}, {1, -1}, {1, 1}};
+        double[] targets = {-1, 1, 1, -1};
+
+        NeuralNetwork net = new NeuralNetwork(42L, 2, 4, 1);
+        Random rng = new Random(42);
+
+        // 5000 шагов обучения, каждый раз на случайном из четырёх примеров
+        for (int step = 0; step < 5000; step++) {
+            int k = rng.nextInt(inputs.length);
+            net.train(inputs[k], targets[k], 0.1);
+        }
+
+        // tanh физически не может достичь ровно ±1, поэтому требования приблизительны, а не строгое равенство
+        for (int k = 0; k < inputs.length; k++) {
+            assertEquals(targets[k], net.predict(inputs[k]), 0.2,
+                    "XOR of " + inputs[k][0] + " and " + inputs[k][1]);
+        }
+    }
+
     // Численная производная ошибки по числу values[index]. Сдвигаем его на +eps и -eps и смотрим на ошибку
     private static double numericalGradient(NeuralNetwork net, double[] input, double target,
                                             double[] values, int index, double eps) {
