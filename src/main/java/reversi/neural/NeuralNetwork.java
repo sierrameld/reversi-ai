@@ -86,4 +86,63 @@ public class NeuralNetwork {
         }
         return activations;
     }
+
+    // Один шаг обучения на одном примере. Сдвигает все веса и смещения так, чтобы ответ стал ближе к target
+    public void train(double[] input, double target, double learningRate) {
+        Gradients g = gradients(input, target);
+        for (int l = 0; l < weights.length; l++) {
+            for (int j = 0; j < weights[l].length; j++) {
+                for (int i = 0; i < weights[l][j].length; i++) {
+                    // Шаг против градиента. Если ошибка растёт при росте веса, вес уменьшаем, и наоборот
+                    weights[l][j][i] -= learningRate * g.weights()[l][j][i];
+                }
+                biases[l][j] -= learningRate * g.biases()[l][j];
+            }
+        }
+    }
+
+    // Backpropagation. Градиенты ошибки E = (y - target)² / 2 по всем весам и смещениям
+    Gradients gradients(double[] input, double target) {
+        double[][] a = forward(input);
+        int last = a.length - 1;
+
+        // delta[k][j] это dE/dz, насколько ошибка чувствительна к сумме z нейрона j слоя k
+        double[][] delta = new double[a.length][];
+
+        // Выходной нейрон. dE/dy = y - target, dy/dz = 1 - y²
+        double y = a[last][0];
+        delta[last] = new double[layerSizes[last]];
+        delta[last][0] = (y - target) * (1 - y * y);
+
+        // Скрытые слои от выхода к входу. Нейрон i получает долю ошибки от каждого нейрона j
+        // следующего слоя через тот же вес, которым на него влиял, и умножает на tanh'
+        for (int k = last - 1; k >= 1; k--) {
+            delta[k] = new double[layerSizes[k]];
+            for (int i = 0; i < layerSizes[k]; i++) {
+                double sum = 0;
+                for (int j = 0; j < layerSizes[k + 1]; j++) {
+                    sum += weights[k][j][i] * delta[k + 1][j];
+                }
+                delta[k][i] = sum * (1 - a[k][i] * a[k][i]);
+            }
+        }
+
+        // dE/dw_ji = delta_j * a_i, dE/db_j = delta_j
+        double[][][] gw = new double[weights.length][][];
+        double[][] gb = new double[weights.length][];
+        for (int l = 0; l < weights.length; l++) {
+            gw[l] = new double[layerSizes[l + 1]][layerSizes[l]];
+            gb[l] = new double[layerSizes[l + 1]];
+            for (int j = 0; j < layerSizes[l + 1]; j++) {
+                for (int i = 0; i < layerSizes[l]; i++) {
+                    gw[l][j][i] = delta[l + 1][j] * a[l][i];
+                }
+                gb[l][j] = delta[l + 1][j];
+            }
+        }
+        return new Gradients(gw, gb);
+    }
+
+    record Gradients(double[][][] weights, double[][] biases) {
+    }
 }
