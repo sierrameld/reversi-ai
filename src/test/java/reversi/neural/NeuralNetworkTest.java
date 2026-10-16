@@ -82,7 +82,7 @@ class NeuralNetworkTest {
         return (errorPlus - errorMinus) / (2 * eps);
     }
 
-    // Та же ошибка, что в backpropagation, E = (y - target)² / 2
+    // Насколько ответ сети далёк от правильного. Та же формула, что в backpropagation, E = (y - target)² / 2
     private static double error(NeuralNetwork net, double[] input, double target) {
         double diff = net.predict(input) - target;
         return 0.5 * diff * diff;
