@@ -19,8 +19,8 @@ public class NeuralNetwork {
     }
 
     // Для тестов. Одинаковый seed даёт одинаковые начальные веса
-    NeuralNetwork(long seed, int... layerSizes) {
-        this(new Random(seed), layerSizes);
+    static NeuralNetwork withSeed(long seed, int... layerSizes) {
+        return new NeuralNetwork(new Random(seed), layerSizes);
     }
 
     private NeuralNetwork(Random rng, int... layerSizes) {

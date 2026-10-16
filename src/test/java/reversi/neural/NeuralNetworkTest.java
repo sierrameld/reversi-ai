@@ -17,7 +17,7 @@ class NeuralNetworkTest {
 
         for (int trial = 0; trial < 5; trial++) {
             // Два скрытых слоя, чтобы проверить передачу ошибки между скрытыми слоями
-            NeuralNetwork net = new NeuralNetwork((long) trial, 3, 4, 3, 1);
+            NeuralNetwork net = NeuralNetwork.withSeed(trial, 3, 4, 3, 1);
             double[] input = {
                     rng.nextDouble() * 2 - 1,
                     rng.nextDouble() * 2 - 1,
@@ -51,7 +51,7 @@ class NeuralNetworkTest {
         double[][] inputs = {{-1, -1}, {-1, 1}, {1, -1}, {1, 1}};
         double[] targets = {-1, 1, 1, -1};
 
-        NeuralNetwork net = new NeuralNetwork(42L, 2, 4, 1);
+        NeuralNetwork net = NeuralNetwork.withSeed(42, 2, 4, 1);
         Random rng = new Random(42);
 
         // 5000 шагов обучения, каждый раз на случайном из четырёх примеров
