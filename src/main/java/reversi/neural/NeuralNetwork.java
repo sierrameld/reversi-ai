@@ -143,6 +143,16 @@ public class NeuralNetwork {
         return new Gradients(gw, gb);
     }
 
+    // Нужен, чтобы gradients вернул сразу два массива, градиенты весов и градиенты смещений, в той же форме, что weights и biases
     record Gradients(double[][][] weights, double[][] biases) {
+    }
+
+    // Для тестов. Возвращают сами массивы, а не копии, так что тест может менять веса на месте
+    double[][][] weights() {
+        return weights;
+    }
+
+    double[][] biases() {
+        return biases;
     }
 }
