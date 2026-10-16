@@ -1,5 +1,10 @@
 package reversi.neural;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.Random;
 
 // Полносвязная нейросеть с активацией tanh на всех слоях. Выход от -1 до 1
@@ -154,5 +159,63 @@ public class NeuralNetwork {
 
     double[][] biases() {
         return biases;
+    }
+
+    // Сохраняет сеть в текстовый файл. Первая строка это размеры слоёв, дальше по строке на каждый нейрон, его веса и в конце смещение
+    public void save(Path file) {
+        StringBuilder text = new StringBuilder();
+        for (int size : layerSizes) {
+            text.append(size).append(' ');
+        }
+        text.append('\n');
+
+        for (int l = 0; l < weights.length; l++) {
+            for (int j = 0; j < weights[l].length; j++) {
+                for (double w : weights[l][j]) {
+                    text.append(w).append(' ');
+                }
+                text.append(biases[l][j]).append('\n');
+            }
+        }
+
+        try {
+            Files.writeString(file, text.toString());
+        } catch (IOException e) {
+            throw new UncheckedIOException("Cannot save network to " + file, e);
+        }
+    }
+
+    // Создаёт сеть из файла, который записал save
+    public static NeuralNetwork load(Path file) {
+        List<String> lines;
+        try {
+            lines = Files.readAllLines(file);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Cannot load network from " + file, e);
+        }
+
+        String[] sizeParts = lines.get(0).trim().split(" ");
+        int[] sizes = new int[sizeParts.length];
+        for (int k = 0; k < sizes.length; k++) {
+            sizes[k] = Integer.parseInt(sizeParts[k]);
+        }
+
+        // Конструктор заполнит веса случайными числами, сразу перезаписываем их числами из файла
+        NeuralNetwork net = new NeuralNetwork(sizes);
+        int line = 1;
+        for (int l = 0; l < net.weights.length; l++) {
+            for (int j = 0; j < net.weights[l].length; j++) {
+                String[] parts = lines.get(line).trim().split(" ");
+                if (parts.length != net.weights[l][j].length + 1) {
+                    throw new IllegalArgumentException("Wrong number of values on line " + (line + 1) + " of " + file);
+                }
+                for (int i = 0; i < net.weights[l][j].length; i++) {
+                    net.weights[l][j][i] = Double.parseDouble(parts[i]);
+                }
+                net.biases[l][j] = Double.parseDouble(parts[parts.length - 1]);
+                line++;
+            }
+        }
+        return net;
     }
 }

@@ -1,8 +1,10 @@
 package reversi.neural;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.util.Random;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -64,6 +66,27 @@ class NeuralNetworkTest {
         for (int k = 0; k < inputs.length; k++) {
             assertEquals(targets[k], net.predict(inputs[k]), 0.2,
                     "XOR of " + inputs[k][0] + " and " + inputs[k][1]);
+        }
+    }
+
+    // Загруженная из файла сеть должна отвечать точно так же, как сохранённая
+    @Test
+    void loadedNetworkGivesSameAnswers(@TempDir Path dir) {
+        NeuralNetwork original = NeuralNetwork.withSeed(1, 64, 32, 16, 1);
+        Path file = dir.resolve("network.txt");
+
+        original.save(file);
+        NeuralNetwork loaded = NeuralNetwork.load(file);
+
+        Random rng = new Random(1);
+        for (int k = 0; k < 20; k++) {
+            double[] input = new double[64];
+            for (int i = 0; i < input.length; i++) {
+                // Случайная доска, в каждой клетке -1, 0 или 1
+                input[i] = rng.nextInt(3) - 1;
+            }
+            // Допуск 0, числа должны совпасть до последнего знака
+            assertEquals(original.predict(input), loaded.predict(input), 0);
         }
     }
 
