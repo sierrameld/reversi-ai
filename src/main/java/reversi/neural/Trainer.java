@@ -8,13 +8,18 @@ import java.util.Random;
 // Обучает сеть на наборе примеров по эпохам. Эпоха это один проход по всем примерам в случайном порядке
 public class Trainer {
     private final NeuralNetwork net;
-    private final double learningRate;
+    private double learningRate;
     private final Random random;
 
     public Trainer(NeuralNetwork net, double learningRate, long seed) {
         this.net = net;
         this.learningRate = learningRate;
         this.random = new Random(seed);
+    }
+
+    // Меняет шаг обучения между эпохами
+    public void setLearningRate(double learningRate) {
+        this.learningRate = learningRate;
     }
 
     // Обучает несколько эпох, печатает и возвращает среднюю ошибку каждой эпохи
