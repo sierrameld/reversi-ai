@@ -1,9 +1,14 @@
 plugins {
     id 'java'
+    id 'application'
 }
 
 group = 'io.github.sierrameld'
 version = '1.0-SNAPSHOT'
+
+application {
+    mainClass = 'reversi.Main'
+}
 
 repositories {
     mavenCentral()
