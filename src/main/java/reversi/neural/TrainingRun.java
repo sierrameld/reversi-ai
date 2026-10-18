@@ -13,10 +13,11 @@ import reversi.ai.MinimaxAgent;
 // Программа обучения. Собирает позиции с оценками минимакса, учит сеть и сохраняет её в models/network.txt нейросети
 public class TrainingRun {
     // Все параметры обучения в одном месте. Они же идут в README
-    private static final int GAMES = 30000;
-    private static final int TEACHER_DEPTH = 4;
-    private static final int[] LAYERS = {64, 64, 32, 1};
-    private static final int EPOCHS = 40;
+    private static final int GAMES = 40000;
+    private static final int TEACHER_DEPTH = 5;
+    private static final int[] LAYERS = {64, 128, 64, 1};
+    private static final int EPOCHS = 60;
+    // Начальный шаг обучения. К концу он уменьшается, см. rateFor
     private static final double LEARNING_RATE = 0.01;
     private static final double TEST_SHARE = 0.1;
     private static final long SEED = 1;
@@ -42,6 +43,7 @@ public class TrainingRun {
 
         long trainStart = System.currentTimeMillis();
         for (int epoch = 1; epoch <= EPOCHS; epoch++) {
+            trainer.setLearningRate(rateFor(epoch));
             double trainError = trainer.trainEpoch(train);
             System.out.printf("Epoch %d: train error %.5f, test error %.5f%n", epoch, trainError, trainer.averageError(test));
         }
@@ -50,6 +52,17 @@ public class TrainingRun {
         Files.createDirectories(OUTPUT.getParent());
         net.save(OUTPUT);
         System.out.println("Saved to " + OUTPUT.toAbsolutePath());
+    }
+
+    // Decay. Первая половина эпох с исходным шагом, потом шаг в 3 раза меньше, последняя четверть в 10 раз меньше
+    private static double rateFor(int epoch) {
+        if (epoch <= EPOCHS / 2) {
+            return LEARNING_RATE;
+        }
+        if (epoch <= EPOCHS * 3 / 4) {
+            return LEARNING_RATE * 0.3;
+        }
+        return LEARNING_RATE * 0.1;
     }
 
     private static double seconds(long since) {
