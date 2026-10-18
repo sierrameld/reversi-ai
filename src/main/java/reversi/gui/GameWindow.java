@@ -3,6 +3,7 @@ package reversi.gui;
 import java.awt.BorderLayout;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.Map;
 
 import javax.swing.BorderFactory;
 import javax.swing.JFrame;
@@ -11,6 +12,7 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingWorker;
 
 import reversi.ai.Agent;
+import reversi.neural.NeuralAgent;
 import reversi.game.Board;
 import reversi.game.Game;
 import reversi.game.Move;
@@ -24,6 +26,8 @@ public class GameWindow extends JFrame {
     private final Game game = new Game();
     private final Agent bot;
     private final Player human;
+    // Сеть, чьи оценки показываются на клетках, когда ходит человек. null значит не показывать
+    private final NeuralAgent advisor;
     private final BoardPanel boardPanel = new BoardPanel();
     private final JLabel status = new JLabel(" ", SwingConstants.CENTER);
     // Пока бот думает, клики человека не принимаются
@@ -31,10 +35,11 @@ public class GameWindow extends JFrame {
     // Сообщение о пропуске хода, показывается в строке статуса
     private String note = "";
 
-    public GameWindow(Agent bot, Player human) {
+    public GameWindow(Agent bot, Player human, NeuralAgent advisor) {
         super("Reversi");
         this.bot = bot;
         this.human = human;
+        this.advisor = advisor;
 
         boardPanel.setOnCellClick(this::onHumanClick);
         status.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
@@ -108,7 +113,10 @@ public class GameWindow extends JFrame {
     // Перерисовывает доску и обновляет строку статуса
     private void refresh() {
         boolean humanTurn = !game.isOver() && !botThinking && game.currentPlayer() == human;
-        boardPanel.setPosition(game.board(), humanTurn ? game.validMoves() : List.of());
+        List<Move> hints = humanTurn ? game.validMoves() : List.of();
+        // Оценки сети считаются только в ход человека и только для его ходов
+        Map<Move, Double> ratings = humanTurn && advisor != null ? advisor.rateMoves(game.board(), human) : Map.of();
+        boardPanel.setPosition(game.board(), hints, ratings);
         status.setText(note + statusText());
     }
 
