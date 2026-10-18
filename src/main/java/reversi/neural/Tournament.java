@@ -15,8 +15,8 @@ import reversi.ai.RandomAgent;
 public class Tournament {
     private static final int GAMES_PER_PAIR = 2000;
     private static final int RANDOM_OPENING_MOVES = 6;
-    // Новый seed, которого не было при выборе сети. Так турнир не подыгрывает сети, выбранной на seed 2
-    private static final long SEED = 3;
+    // Seed 3 был у турнира с прошлой сетью. Seed 4 новый, ради чистоты тестирования
+    private static final long SEED = 4;
     private static final Path NETWORK = Path.of("models", "network.txt");
     private static final Path RESULTS = Path.of("models", "tournament.csv");
 
