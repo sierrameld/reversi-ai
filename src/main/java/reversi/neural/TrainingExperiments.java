@@ -1,6 +1,9 @@
 package reversi.neural;
 
 import java.io.IOException;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -25,7 +28,7 @@ public class TrainingExperiments {
     private static final long SEED = 1;
 
     // Каждые CHECKPOINT эпох сеть сохраняется и играет партии. Так за один прогон видно, помогают ли лишние эпохи
-    private static final int CHECKPOINT = 20;
+    private static final int CHECKPOINT = 30;
 
     // Сколько партий играет каждая обученная сеть против каждого соперника
     private static final int MATCH_GAMES = 400;
@@ -39,19 +42,45 @@ public class TrainingExperiments {
     private record Plan(int games, int teacherDepth, List<Net> networks) {
     }
 
-    // Уже обученные сети, которые перепроверяем на большем числе партий и на других случайных началах
+    // Сети ночного опыта. Перепроверка в конце, в тех же условиях, в которых итоговая сеть дала 823-1126-51 против Minimax(3)
     private static final List<String> RECHECK = List.of(
-            "net_g30000_d4_64-64-32-1_e40.txt",
-            "net_g20000_d4_64-64-32-1_decay_e40.txt",
-            "net_g20000_d4_64-64-32-1_lr0.003_e40.txt"
+            "net_g3000_d6_64-64-32-1_decay_e30.txt",
+            "net_g3000_d6_64-64-32-1_decay_e60.txt",
+            "net_g80000_d4_64-64-32-1_decay_e30.txt",
+            "net_g80000_d4_64-64-32-1_decay_e60.txt",
+            "net_g3000_d6_64-256-256-1_decay_e30.txt",
+            "net_g3000_d6_64-256-256-1_decay_e60.txt",
+            "net_g3000_d6_64-256-256-1_decay_e90.txt",
+            "net_g80000_d4_64-128-64-1_decay_e30.txt",
+            "net_g80000_d4_64-128-64-1_decay_e60.txt",
+            "net_g40000_d5_64-128-64-1_decay_e30.txt",
+            "net_g40000_d5_64-128-64-1_decay_e60.txt"
     );
 
     private static final int RECHECK_GAMES = 2000;
     private static final int RECHECK_OPENING_MOVES = 6;
     private static final long RECHECK_SEED = 2;
 
-    // Новых обучений нет, только перепроверка
-    private static final List<Plan> PLANS = List.of();
+    // Хороший учитель. Сеть и обучение как у вариативности, отличаются только позиции
+    private static final Net TEACHER = new Net(new int[]{64, 64, 32, 1}, 60, 0.01, true);
+
+    // Большая вариативность. Сеть и обучение как у хорошего учителя
+    private static final Net VARIETY = new Net(new int[]{64, 64, 32, 1}, 60, 0.01, true);
+
+    // Большая нейросеть. Позиции те же, что у хорошего учителя, отличаются только сеть и число эпох
+    private static final Net BIG_NETWORK = new Net(new int[]{64, 256, 256, 1}, 90, 0.01, true);
+
+    // Средняя нейросеть. Позиции те же, что у вариативности. Проверяет, раскрывается ли сеть побольше на большом наборе
+    private static final Net MEDIUM_NETWORK = new Net(new int[]{64, 128, 64, 1}, 60, 0.01, true);
+
+    // Позиции от Minimax(6), их мало. На них учатся хороший учитель и большая нейросеть
+    private static final Plan TEACHER_AND_BIG_NETWORK_DATA = new Plan(3000, 6, List.of(TEACHER, BIG_NETWORK));
+
+    // Позиции от Minimax(4), их почти втрое больше, чем у итоговой сети
+    private static final Plan VARIETY_AND_MEDIUM_NETWORK_DATA = new Plan(80000, 4, List.of(VARIETY, MEDIUM_NETWORK));
+
+    // Баланс по времени и потенциалу относительно остальных. Учитель (Minimax(5)) точнее, чем у вариативности, а позиций вдвое меньше, сеть та же средняя
+    private static final Plan PERFECT_BALANCED_DATA = new Plan(40000, 5, List.of(MEDIUM_NETWORK));
 
     public static void main(String[] args) throws IOException {
         Files.createDirectories(DIR);
@@ -60,9 +89,16 @@ public class TrainingExperiments {
                     + "generate_s,train_s,test_error,vs_random,vs_minimax1,vs_minimax3\n");
         }
 
-        recheck();
+        // Аргумент запуска выбирает набор позиций. Так оба набора считаются одновременно, каждый в своём окне
+        List<Plan> plans = switch (args.length > 0 ? args[0] : "") {
+            case "teacher_and_big_network" -> List.of(TEACHER_AND_BIG_NETWORK_DATA);
+            case "variety_and_medium_network" -> List.of(VARIETY_AND_MEDIUM_NETWORK_DATA);
+            case "perfect_balanced" -> List.of(PERFECT_BALANCED_DATA);
+            default -> throw new IllegalArgumentException(
+                    "Program argument must be teacher_and_big_network, variety_and_medium_network or balanced");
+        };
 
-        for (Plan plan : PLANS) {
+        for (Plan plan : plans) {
             try {
                 runPlan(plan);
             } catch (IOException | RuntimeException | OutOfMemoryError e) {
@@ -70,14 +106,15 @@ public class TrainingExperiments {
                 log("FAILED games " + plan.games() + ", depth " + plan.teacherDepth() + ": " + e);
             }
         }
+
+        // Перепроверка после обучения. Сети другого окна, которые ещё не готовы, просто пропускаются
+        recheck();
         log("All done");
     }
 
     private static void runPlan(Plan plan) throws IOException {
-        log("Generating " + plan.games() + " games, teacher Minimax(" + plan.teacherDepth() + ")");
         long start = System.currentTimeMillis();
-        DatasetGenerator generator = new DatasetGenerator(new MinimaxAgent(plan.teacherDepth())::search, SEED);
-        List<TrainingExample> examples = new ArrayList<>(generator.generate(plan.games()));
+        List<TrainingExample> examples = new ArrayList<>(loadOrGenerate(plan));
         double generateSeconds = seconds(start);
         log(examples.size() + " positions in " + Math.round(generateSeconds) + " s");
 
@@ -110,6 +147,53 @@ public class TrainingExperiments {
                 }
             }
         }
+    }
+
+    // Позиции с оценками учителя. Если файл с ними уже есть, читаем его, иначе генерируем и сохраняем
+    private static List<TrainingExample> loadOrGenerate(Plan plan) throws IOException {
+        Path file = DIR.resolve("data_g" + plan.games() + "_d" + plan.teacherDepth() + ".txt");
+        if (Files.exists(file)) {
+            log("Loading " + file);
+            return readExamples(file);
+        }
+        log("Generating " + plan.games() + " games, teacher Minimax(" + plan.teacherDepth() + ")");
+        DatasetGenerator generator = new DatasetGenerator(new MinimaxAgent(plan.teacherDepth())::search, SEED);
+        List<TrainingExample> examples = generator.generate(plan.games());
+        writeExamples(file, examples);
+        return examples;
+    }
+
+    // Одна позиция на строку. 64 клетки знаками +, - и точка, через пробел оценка учителя
+    private static void writeExamples(Path file, List<TrainingExample> examples) throws IOException {
+        // Сначала пишем во временный файл. Если запись оборвётся, недописанный файл не примут за готовый
+        Path temp = file.resolveSibling(file.getFileName() + ".tmp");
+        try (BufferedWriter out = Files.newBufferedWriter(temp)) {
+            for (TrainingExample e : examples) {
+                StringBuilder line = new StringBuilder();
+                for (double v : e.input()) {
+                    line.append(v > 0 ? '+' : v < 0 ? '-' : '.');
+                }
+                line.append(' ').append(e.target()).append('\n');
+                out.write(line.toString());
+            }
+        }
+        Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING);
+    }
+
+    private static List<TrainingExample> readExamples(Path file) throws IOException {
+        List<TrainingExample> examples = new ArrayList<>();
+        try (BufferedReader in = Files.newBufferedReader(file)) {
+            String line;
+            while ((line = in.readLine()) != null) {
+                double[] input = new double[64];
+                for (int i = 0; i < 64; i++) {
+                    char c = line.charAt(i);
+                    input[i] = c == '+' ? 1 : c == '-' ? -1 : 0;
+                }
+                examples.add(new TrainingExample(input, Double.parseDouble(line.substring(65))));
+            }
+        }
+        return examples;
     }
 
     // Сохраняет сеть, играет ей партии и дописывает строку в results.csv
